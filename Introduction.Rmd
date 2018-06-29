@@ -57,7 +57,10 @@ TC026 We would like to know how you generally feel about your job. How strongly 
   * We should use them all together to draw conclusions.
   * We must extract a factor that is a common cause of answers to this questions.
   * It will allow us to draw more general conclusions and to do it with more precision (with less random error).
-  * Nearly the same diagram -- fundamental difference in interpretation:
+  
+## Thinking reflectively
+
+**Nearly the same diagram -- fundamental difference in interpretation:**
 
 ```{r echo=FALSE, message=FALSE, fig.height=3.5}
 library(diagram)
@@ -85,7 +88,9 @@ textrect(elpos[3,], 0.2, 0.1, lab = "Question 1", box.col = "white", cex = 1.5)
 textellipse(elpos[4,], 0.2, lab = "Common\nfactor", box.col = "white", cex = 1.5)
 ```
 
-  **Today we will be thinking in a *reflective* way!**
+**Today we will be thinking in a *reflective* way!**
+
+  * We assume that there is an unobserved factor, that is a common cause to answers given to analized questions.
 
 ## Scaling as hypothesis testing
 
@@ -252,8 +257,8 @@ textrect(elpos[3,], 0.1, 0.1, lab = "Question 1\n(ordered cat.)",
 ## Basic concepts
 
   * Observed variables are effects of a common factor that can't be observed directly (or perhaps few such factors - in multidemnsional models).
-  * The strength (and direction) of relationship between common factor and observed variable is described by **factor loading**.
-    - We can think of factor loading as of a correlation.
+  * The strength (and direction) of a relationship between common factor and observed variable is described by a **factor loading**.
+    - We can think of a factor loading as of a correlation.
   * The stronger are this relationships, the more precisely we can estimate values of a common factor.
   * We prefer a situtation when all the questions have rather similar values of factor loadings than a situation where for some questions relationship with a common factor are much stronger (or weaker) than for the others.
     - In the first case we can say all questions are *equally good* indicators of a general concept that we are measuring.
@@ -264,6 +269,7 @@ textrect(elpos[3,], 0.1, 0.1, lab = "Question 1\n(ordered cat.)",
 ## Lavaan
 
   - *The lavaan package is developed to provide useRs, researchers and teachers a free open-source, but commercial-quality package for latent variable modeling. You can use lavaan to estimate a large variety of multivariate statistical models, including path analysis, confirmatory factor analysis, structural equation modeling and growth curve models.* [(official package page)](http://lavaan.ugent.be/)
+  - User experience regarding model specification and printed output very similar to *Mplus*.
   - We will use *lavaan* to perform CCFA but it can be easily used to estimate wide variety of SEM models (estimated on the basis of covariance/correlation matrix).
   - *laavan* itself do not enable user to perform typical EFA/CEFA. It can be done with use of functions from the [*semTools*](https://github.com/simsem/semTools/wiki) package.
   
