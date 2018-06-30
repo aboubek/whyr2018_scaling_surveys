@@ -1,0 +1,349 @@
+---
+title: "One-dimensional Models"
+author: "Tomasz Żółtak"
+date: "2.07.2018"
+output: html_document
+---
+
+# Teachers data
+
+First we will work with set of questions used in PISA 2015 Teacher Questionary. Questions regards attitudes toward working as a teacher. For simplicity we will use data from only 3 countries: Germany, Brazil and United Arab Emirates.
+
+```{r}
+(load("teachers.RData"))
+summary(droplevels(teachers$CNTRYID))
+```
+
+  - Data frame `teachers` contains answers (variables with names starting from "TC026") and 3 id variables.
+    - This survey data has been cleaned. All irrelevant answers to the questions has been replaced with NAs and respondents that didn't answer to any question have been removed from the dataset.
+  - Data frame `teachersMoreInfo` contains some additional charactersitics of the respondents.
+  - Data frame `teachersVarLabels` contains labels of variables in two data frames described above.
+
+So what were teachers asked about?
+
+```{r}
+teachersVarLabels[4:11,]
+```
+
+Let's note, that:
+
+  - There are both quesions with *positive wording* (Q01, Q02, Q05, Q07, Q09, Q10) and with *negative wording* (Q04, Q06).
+  - The numbering of questions is not continuous - there lacks Q03 and Q07. It is probable that these questions proved not to work correctly in a pilot study and have been deleted from a final questionnaire.
+
+How teachers responded to this questions?
+
+```{r}
+summary(teachers[,4:11])
+```
+
+# Simple one-dimensional models
+
+## Simple IRT models with mirt
+
+### One-dimensional SGR IRT model
+
+Let's use *mirt* at first.
+
+Function `mirt()` takes data (as a data frame or matrix) as a first argument and number of factors as a second argument. However we must convert our variables from factor to numeric format.
+
+```{r}
+library(mirt)
+teachersNumeric = as.data.frame(lapply(teachers[, 4:11], as.numeric))
+# estimate one-dimension Samejima's Graded Response IRT model
+mm1Teachers = mirt(teachersNumeric, 1)
+summary(mm1Teachers)
+```
+
+`summary()` method for *mirt* model objects prints a matrix in a EFA-like format:
+
+  - Column *F1* contains **factor loadigns**.
+  - Coulmn *h2* contains so-called *communalities*. In one-dimesnional models: $h2 = 1 - F1^2$
+
+We can see that:
+
+  - As expected all variables except Q04 and Q06 are positively related to a common factor.
+  - All relationships are rather strong - with a little exception of Q09 - and quite similar in strength.
+
+### How to tell if model is good?
+
+For now let's assume, that it is good:
+
+  - to have at least 3 questions in a scale (this rule comes from CFA approach);
+  - not to have factor loadings below .5;
+  - not to have to much variation in (absolute) values of factor loadings.
+
+We can see values of some fit indexes calling `anova()` function, but it won't be useful without having some other model for a comparison.
+
+```{r}
+anova(mm1Teachers)
+```
+
+### Rasch model
+
+Can we assume that relationships between a common factor and all questions have the same strength? Let's estimate a so-called Rasch model (preciselly: it will be Rasch Partial Credit Model) which introduces such an assumption. However to do this we need to revert two *negatively worded* questions in the dataset.
+
+```{r}
+# reverting negatively worded questions
+teachersNumericRev = teachersNumeric
+teachersNumericRev$TC026Q04NA = 5 - teachersNumericRev$TC026Q04NA
+teachersNumericRev$TC026Q06NA = 5 - teachersNumericRev$TC026Q06NA
+# estimate one-dimension Rasch Partial Credit IRT model
+mm2Teachers = mirt(teachersNumericRev, 1, "Rasch")
+summary(mm2Teachers)
+```
+
+Now we can test whether the previous, more complicated model fits data significantly better than the simplier Rasch model (using LR test and some information criteria).
+
+```{r}
+anova(mm1Teachers, mm2Teachers)
+```
+
+It looks that Rasch model assumption doesn't hold.
+
+**Note:** In general it is a bad idea to compare models that were not estimated using exactly the same dataset. However in our case `teachersNumeric` and `teachersNumericRev` can be treated as equivalent for purpose of comparing SGR and RPC models. Anyway, let's check this:
+
+```{r, eval=FALSE}
+# estimate SGR model with `teachersNumericRev` data
+mm1rTeachers = mirt(# write your code here)
+anova(mm1rTeachers, mm1Teachers) # don't look at p-value, therea are no df!
+anova(mm1rTeachers, mm2Teachers)
+```)
+```
+
+## The same in lavaan
+
+### Estimation of CCFA with lavaan
+
+We must describe model to laavan using specific forumla-kind syntax, provided as a string. Also we must make sure that our variables are **ordered** factors (very rarely used R feature). CCFA can be estimated with `cfa()` function.
+
+```{r}
+library(lavaan)
+teachersOrdered = as.data.frame(lapply(teachers[, 4:11], ordered))
+# estimate one-dimension CCFA model
+model = 'F1 =~ TC026Q01NA + TC026Q02NA + TC026Q04NA + TC026Q05NA + TC026Q06NA +
+  TC026Q07NA + TC026Q09NA + TC026Q10NA'
+# or:
+# model = paste0('F1 =~ ', paste0(names(teachersOrdered), collapse = " + "))
+mf1Teachers = cfa(model, teachersOrdered)
+summary(mf1Teachers, fit.measures = TRUE, standardized = TRUE)
+```
+
+**Let's note that `cfa()` by default removes missings listwise**, ie. all observations with at least one missing value are excluded from analysis. In `mirt()` all observations are used.
+
+We can compare these results to those from `mirt()`.
+
+```{r}
+data.frame(fact.loadings.lavaan = 
+             round(standardizedSolution(mf1Teachers)$est.std[1:8], 3),
+           fact.loadings.mirt = round(summary(mm1Teachers)$rotF[, 1], 3))
+```
+
+Clearly they're not the same (estimated models weren't formally equivalent, because `mirt` used logistic link function; moreover `cfa()` excluded observations with missings) but qualitatively similar.
+
+### Assesing model fit
+
+Using CCFA we have ability to easily assess overall model fit. As can be seen in `mf1Teachers` model summary above, our model is far from being perfect. Chi-square test shows that so-called *saturated model* fits the data signifficantly better than our model (however with 16 thousands of respondent it's not very surprising). While values of CFI and TLI measures are not so bad, RMSEA and SRMR are poor.
+
+**Note:** rules of interpreting values of fit indices are a little different between domains and are considerably changing over time (getting more and more strict each decade, especially in psychology). For purpose of this workshop let's assume that *good* is: having CFI and TLI over .9, having RMSEA below .5, and having RMSR below .08.
+
+### Rasch (probit) model with lavaan
+
+If you like, you can estimate Rasch model also within CCFA approach (except that this will be a probit, not a logistic model). To do this with *lavaan* we must fix values of model parameters (remembering about negative wording of two questions):
+
+```{r}
+# estimate one-dimension CCFA Rasch-like model
+modelR = 'F1 =~ 1*TC026Q01NA + 1*TC026Q02NA + -1*TC026Q04NA + 1*TC026Q05NA +
+  -1*TC026Q06NA + 1*TC026Q07NA + 1*TC026Q09NA + 1*TC026Q10NA'
+# or:
+# modelR = paste0('F1 =~ ', paste0(c(1, 1, -1, 1, -1, 1, 1, 1), "*",
+#                                 names(teachersOrdered), collapse = " + "))
+mf2Teachers = cfa(modelR, teachersOrdered)
+summary(mf2Teachers, fit.measures = TRUE, standardized = TRUE)
+```
+
+We can compare two models with `anova()` function (however result is easy to gues):
+
+```{r}
+anova(mf2Teachers, mf1Teachers)
+```
+
+## Estimating factor scores
+
+Now We know something about our scale, but still don't have estimates of a latent common factor that we could use in a further analysis. Let's get them!
+
+### With mirt
+
+```{r}
+teachers$scoresSGRM = fscores(mm1Teachers)[, 1]
+```
+
+### With lavaan
+
+Here it's a little more complicated, because `cfa()` removed cases with missings.
+
+```{r}
+# this will take a while!
+teachers$scoresCCFA = NA
+teachers$scoresCCFA[-attributes(na.omit(teachersOrdered))$na.action] =
+  lavPredict(mf1Teachers)
+```
+
+**Note:** `fscores()` and `lavPredict()` by default uses different methods of estimating factor scores: Empirical Bayes Modal (EBM) and Expected A'Posteriori (EAP). We can estimate EBMs with `fscores()` (using `method` argument), but we can't estimate EAPs with `lavPredict()`. Nevertheless, as long as posterior distributions (of latent trait conditionally on combination of values of observed variables) are quite similar to gaussian (what is often a case), differences between this two methods are very small.
+
+### Simple index
+
+For a comparison let's construct a simple index. It will be computed as a mean value of observed variables for each respondent (we will use mean instead of sum, because it allows us not to omit cases with missing values).
+
+```{r}
+teachers$simpleIndex = rowMeans(teachersNumericRev, na.rm = TRUE)
+```
+
+### A comparison
+
+```{r}
+summary(teachers[, c("simpleIndex", "scoresSGRM", "scoresCCFA")])
+round(cor(teachers[, c("simpleIndex", "scoresSGRM", "scoresCCFA")],
+          use = "pairwise.complete.obs"), 3)
+pairs(teachers[, c("simpleIndex", "scoresSGRM", "scoresCCFA")],
+      lower.panel = function(x, y) {
+        points(x, y)
+        grid()},
+      upper.panel = function(x, y) {
+        smoothScatter(x, y, add = TRUE)
+        grid()})
+```
+
+It seems that using factor scores couldn't be much superior to using simply constructed index - as long as questions form a quite-good scale **and a population is homogenous**.
+
+In a simple one-dimensional case scaling is much more about checking whether it is reasonable to treat a set of questions as constituting a scale (being results of a common cause), than about obtainig better estimates of factor scores.
+
+# Multiple groups
+
+## Comparison bettwen countries using scores from single-group models
+
+We have three different countries in our data. First let's make a comparison using scores derived above.
+
+To make comparisons easier let's make one country - let it be Brazil - a point of reference. So we will transform scores in our data in a way, that they have mean 0 and standard deviation 1 among German teachers.
+
+```{r}
+teachersBr = 
+  subset(teachers, CNTRYID %in% "Brazil")[, c("simpleIndex", "scoresSGRM",
+                                               "scoresCCFA")]
+teachersStd = scale(teachers[, c("simpleIndex", "scoresSGRM", "scoresCCFA")],
+                    center = sapply(teachersBr, mean, na.rm = TRUE),
+                    scale = sapply(teachersBr, sd, na.rm = TRUE))
+countryMeans = aggregate(teachersStd,
+                         as.list(teachers[, "CNTRYID", drop = FALSE]),
+                         mean, na.rm = TRUE)
+countryMeans[, -1] = lapply(countryMeans[, -1], round, digits = 2)
+names(countryMeans)[-1] = paste0(names(countryMeans)[-1], ".mean")
+countrySDs = aggregate(teachersStd,
+                       as.list(teachers[, "CNTRYID", drop = FALSE]),
+                       sd, na.rm = TRUE)
+countrySDs[, -1] = lapply(countrySDs[, -1], round, digits = 2)
+names(countrySDs)[-1] = paste0(names(countrySDs)[-1], ".sd")
+(countries = merge(countryMeans, countrySDs))
+```
+
+We may conclude that:
+
+  - The most positive attitude towards being a teacher have German teachers, and the least positive (among these three countries) have Brazil teachers.
+  - Size of a difference between Brasil and Germany depends on estimator of latent scores - it is visibly larger if SGRM estimates are used.
+  - Variation in attitudes are similar in Germany and United Arab Emirates and a liitle smaller in Peru.
+
+## Multiple groups models with a measurement invariance
+
+However we may estimate more complicated models, in which we will take into account that respondents comes from three potentially different populations. In this models means and standard deviations of a latent trait within each group (except one, that will be a point of reference to the others) will be a model parameters. On the other hand, we will assume, that measurement properties of questions do not vary between countries - this assumption is called measurement invariance (to be precise: *scalar invariance* or *strong factorial invariance*). If we don't introduce such a assumption, comparing means and variances between groups will make little (or even no) sense.
+
+### Multiple groups model with measurement invariance in mirt
+
+To estimate such a model with *mirt* package we must use `multipleGroup()` function. Comparing to `mirt()` it needs two additional arguments: vector describing grouping and specyfication of what parameters should be fixed and what parameters should be freely estimated across groups. Function `multipleGroup()` by default assumes that distribution of latent trait is the same across groups, but questions (items) parameters may vary - just the opposite to what we want to do now. In a code below `invariance = c("free_means", "free_var", "slopes", "intercepts")` tells function to freely estimate means and variances of a latent traits, but to keep fixed parameters describing relationship between latent factor and observed variables (ie. *slopes* and *intercepts*).
+
+```{r}
+mm3Teachers = multipleGroup(teachersNumeric, 1, teachers$CNTRYID,
+                            invariance = c("free_means", "free_var",
+                                           "slopes", "intercepts"))
+```
+
+Let's take a look at the differences between countries:
+
+```{r}
+countryPars = t(sapply(coef(mm3Teachers), function(x) {return(x$GroupPars)}))
+countryPars[, 2] = sqrt(countryPars[, 2])
+countryPars = round(countryPars, 2)
+colnames(countryPars) = c("mean", "sd")
+countryPars
+```
+
+Differences between countries estimated as a model parameters became larger. Moreover it appears, that there are also some differences in variation of attitudes within countries (standard deviation of a latent factor in Germany is 10% larger than in Brazil).
+
+### Multiple groups model with measurement invariance in lavaan
+
+```{r}
+mf3Teachers = cfa(model, cbind(teachersOrdered, CNTRY = teachers$CNTRY),
+                  group = "CNTRY",
+                  group.equal = c("loadings", "intercepts"))
+summary(mf3Teachers, fit.measures = TRUE, standardized = TRUE)
+```
+
+To compare groups we must do some additional operations:
+
+```{r}
+groupMeans = subset(parameterEstimates(mf3Teachers),
+                    lhs %in% "F1" & op %in% c( "~1"))$est
+groupVars = subset(parameterEstimates(mf3Teachers),
+                    lhs %in% "F1" & op %in% c( "~~"))$est
+groupMeans  = groupMeans  / sqrt(groupVars[1])
+groupVars = groupVars / groupVars[1]
+data.frame(country = c("Brazil", "Germany", "United Arab Emirates"),
+           mean = round(groupMeans, 2),
+           sd = round(groupVars^0.5, 2))
+```
+
+Also with CCFA differences between countries appears visibly larger in multigroup model. There are also huge differences in variation of a latent trait between groups, that weren't visible when scores estimated on a basis of single-group model were analized.
+
+### Does this hold with factor scores?
+
+```{r}
+teachers$scoresSGRMmg = fscores(mm3Teachers)[, 1]
+teachers$scoresCCFAmg = NA
+temp = lavPredict(mf3Teachers)
+teachers$scoresCCFAmg[-union(attributes(na.omit(teachersOrdered))$na.action,
+                             which(!(teachers$CNTRYID %in% "Brazil")))] =
+  temp[[1]]
+teachers$scoresCCFAmg[-union(attributes(na.omit(teachersOrdered))$na.action,
+                             which(!(teachers$CNTRYID %in% "Germany")))] =
+  temp[[2]]
+teachers$scoresCCFAmg[-union(attributes(na.omit(teachersOrdered))$na.action,
+                             which(!(teachers$CNTRYID %in% "United Arab Emirates")))] =
+  temp[[3]]
+
+teachersBr = 
+  subset(teachers, CNTRYID %in% "Brazil")[, c("scoresSGRMmg", "scoresCCFAmg")]
+teachersStdMg = scale(teachers[, c("scoresSGRMmg", "scoresCCFAmg")],
+                      center = sapply(teachersBr, mean, na.rm = TRUE),
+                      scale = sapply(teachersBr, sd, na.rm = TRUE))
+countryMeansMg = aggregate(teachersStdMg,
+                           as.list(teachers[, "CNTRYID", drop = FALSE]),
+                           mean, na.rm = TRUE)
+countryMeansMg[, -1] = lapply(countryMeansMg[, -1], round, digits = 2)
+names(countryMeansMg)[-1] = paste0(names(countryMeansMg)[-1], ".mean")
+countrySDsMg = aggregate(teachersStdMg,
+                         as.list(teachers[, "CNTRYID", drop = FALSE]),
+                         sd, na.rm = TRUE)
+countrySDsMg[, -1] = lapply(countrySDsMg[, -1], round, digits = 2)
+names(countrySDsMg)[-1] = paste0(names(countrySDsMg)[-1], ".sd")
+(countriesMg = merge(countryMeansMg, countrySDsMg))
+```
+
+Factor scores from *mirt* shows even greater differences than model parameters.
+
+**Factor scores from multigroup model extracted with *lavaan* can't be trusted!**
+
+### Multiple groups with model invariance - summary
+
+  - **If in your analysis differences between groups are of primary interest, the best choice is to estimate multigroup model and to draw conclusions looking at model parameters describing distribution of a laten trait.**
+  - If you need to estimate factor scores to be used in further analysis, you must choose:
+    - Scores from one-group model will underestimate differences between groups.
+    - Scores from multiple group model will overestimate differences between groups.
+      - At least for now, you should not use factor scores from multigroup model extracted with *lavaan*.
