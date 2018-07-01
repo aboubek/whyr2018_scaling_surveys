@@ -365,15 +365,15 @@ Factor scores from *mirt* shows even greater differences than model parameters.
 
 # Distractions of unidimensionality
 
-As we have seen, unidimensional model applied to this set of 8 questions doesn't fit data very well. We can look for some more complicated model specifications that will allow better fit.
+As we have seen, unidimensional model applied to this set of 8 questions doesn’t fit data very well. We can look for some more complicated model specifications that will improve the fit.
 
 Within CCFA approach we have two solutions that can be used to improve model fit:
 
-  - Assuming that there are **correlated errors**, ie. that some observed variables (answers to some questions) are pairwise correlated independently of a relationship with a factor being a common cause to all the analized questions.
-   - Assuming that there is additional latent factor related to some of observed variables independently of a relationship with a factor being a common cause to all the analized questions.
+  - Assuming that there are **correlated errors**, ie. that some observed variables (answers to some questions) are pairwise correlated independently of a relationship with a factor being a common cause to all items/questions.
+   - Assuming that there is additional latent factor related to some of observed variables independently of a relationship with a factor being a common cause to all items/questions.
    - Assuming that there are several subscales within our set of questions.
 
-But how to determine, which (pairs/subsets of) questions are causing problems?
+Let's look at the first solution. How to determine, which (pairs/subsets of) questions are causing problems?
 
 ## Using modification indices to detect problems
 
@@ -390,7 +390,7 @@ teachersVarLabels[grep("Q0[57]", teachersVarLabels$variable), ]
 
 These are two questions with the strongest reference to a climate in the specific place where respondent works.
 
-Because problem involves only two questions within CCFA approach it will be better to solve it adding to a model correlation between observed variables' errors.
+Because problem involves only two questions, adding to a model correlation between observed variables’ errors seems to be a good solution within CCFA approach.
 
 ```{r}
 modelCe1 = '
@@ -421,7 +421,7 @@ summary(mfCe2Teachers, fit.measures = TRUE, standardized = TRUE)
 
 ## Dealing with correlated errors in mirt
 
-In *mirt* we don't have convient tools to detect what pairs of questions are correlated independently of relationship with a common factor. However if we detected this otherwise, we can use bifactor rotation to estimate model that describes such correlations. It is done in a different way than we have done above, by introducing additional, so-called specific factors (independent of each other and of a general factor) to a model. To do it with *mirt* we should use `bfactor()` function, in a second argument describing attribution of questions (items) to specific factors (with `NA` meaning no attribution to any of this factors).
+In *mirt* we don’t have convinient tools to detect what pairs of questions are correlated independently of relationship with a common factor. However if we detected this otherwise, we can use bifactor model specification that describes such correlations. It is done in a different way than we have done above, by introducing additional, so-called specific factors (independent of each other and of a general factor) to a model. To do it with *mirt* we should use `bfactor()` function, in a second argument describing attribution of questions (items) to specific factors (with `NA` meaning no attribution to any of this factors).
 
 ```{r}
 # this model is 3-dimensional, so it is more demanding computationally
@@ -449,9 +449,9 @@ mfBfTeachers = cfa(modelBf, teachersOrdered)
 summary(mfBfTeachers, fit.measures = TRUE, standardized = TRUE)
 ```
 
-We can see that such a model fits data much better than our base unidimensional model (however we can notice, that Q10 appears not to be conected with a second specific factor). It also fits data better than a model with two residual correlations added. However we can't directly test fit of this bi-factor model and a model with residual correlations (for example with `anova()` function), because they aren't nested.
+We can see that such a model fits data much better than our base unidimensional model (however we can notice, that Q10 appears not to be related to the second specific factor). It also fits data better than a model with two residual correlations added. However we can’t directly test fit of this bi-factor model and a model with residual correlations (for example with `nova()` function), because the models are not nested.
 
-However we should note that we encountered some **problems with estimation**. Because of that this results can't be fully trusted. Generaly we have to few observed variables to assure stable estimation of a model with 3 latent factors within CCFA approach. This won't be so serious problem within IRT approach:
+However we should note that we encountered some **problems with estimation**. Because of that, results can’t be fully trusted. Generaly we have too few observed variables to assure stable estimation of a model with 3 latent factors within CCFA approach. This won’t be so serious problem within IRT approach:
 
 ```{r}
 # this model is 3-dimensional, so it is more demanding computationally

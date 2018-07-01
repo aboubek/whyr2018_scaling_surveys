@@ -1281,14 +1281,14 @@ names(countrySDsMg)[-1] = paste0(names(countrySDsMg)[-1], &quot;.sd&quot;)
 </div>
 <div id="distractions-of-unidimensionality" class="section level1">
 <h1>Distractions of unidimensionality</h1>
-<p>As we have seen, unidimensional model applied to this set of 8 questions doesn’t fit data very well. We can look for some more complicated model specifications that will allow better fit.</p>
+<p>As we have seen, unidimensional model applied to this set of 8 questions doesn’t fit data very well. We can look for some more complicated model specifications that will improve the fit.</p>
 <p>Within CCFA approach we have two solutions that can be used to improve model fit:</p>
 <ul>
-<li>Assuming that there are <strong>correlated errors</strong>, ie. that some observed variables (answers to some questions) are pairwise correlated independently of a relationship with a factor being a common cause to all the analized questions.</li>
-<li>Assuming that there is additional latent factor related to some of observed variables independently of a relationship with a factor being a common cause to all the analized questions.</li>
+<li>Assuming that there are <strong>correlated errors</strong>, ie. that some observed variables (answers to some questions) are pairwise correlated independently of a relationship with a factor being a common cause to all items/questions.</li>
+<li>Assuming that there is additional latent factor related to some of observed variables independently of a relationship with a factor being a common cause to all items/questions.</li>
 <li>Assuming that there are several subscales within our set of questions.</li>
 </ul>
-<p>But how to determine, which (pairs/subsets of) questions are causing problems?</p>
+<p>Let’s look at the first solution. How to determine, which (pairs/subsets of) questions are causing problems?</p>
 <div id="using-modification-indices-to-detect-problems" class="section level2">
 <h2>Using modification indices to detect problems</h2>
 <pre class="r"><code>modind = modificationIndices(mf1Teachers)
@@ -1328,7 +1328,7 @@ modind[order(-modind$mi), ]</code></pre>
 ## 7 TC026Q05NA                      I enjoy working at this school.
 ## 9 TC026Q07NA I would recommend my school as a good place to work.</code></pre>
 <p>These are two questions with the strongest reference to a climate in the specific place where respondent works.</p>
-<p>Because problem involves only two questions within CCFA approach it will be better to solve it adding to a model correlation between observed variables’ errors.</p>
+<p>Because problem involves only two questions, adding to a model correlation between observed variables’ errors seems to be a good solution within CCFA approach.</p>
 <pre class="r"><code>modelCe1 = '
 F1 =~ TC026Q01NA + TC026Q02NA + TC026Q04NA + TC026Q05NA + TC026Q06NA +
   TC026Q07NA + TC026Q09NA + TC026Q10NA
@@ -1633,7 +1633,7 @@ summary(mfCe2Teachers, fit.measures = TRUE, standardized = TRUE)</code></pre>
 </div>
 <div id="dealing-with-correlated-errors-in-mirt" class="section level2">
 <h2>Dealing with correlated errors in mirt</h2>
-<p>In <em>mirt</em> we don’t have convient tools to detect what pairs of questions are correlated independently of relationship with a common factor. However if we detected this otherwise, we can use bifactor rotation to estimate model that describes such correlations. It is done in a different way than we have done above, by introducing additional, so-called specific factors (independent of each other and of a general factor) to a model. To do it with <em>mirt</em> we should use <code>bfactor()</code> function, in a second argument describing attribution of questions (items) to specific factors (with <code>NA</code> meaning no attribution to any of this factors).</p>
+<p>In <em>mirt</em> we don’t have convinient tools to detect what pairs of questions are correlated independently of relationship with a common factor. However if we detected this otherwise, we can use bifactor model specification that describes such correlations. It is done in a different way than we have done above, by introducing additional, so-called specific factors (independent of each other and of a general factor) to a model. To do it with <em>mirt</em> we should use <code>bfactor()</code> function, in a second argument describing attribution of questions (items) to specific factors (with <code>NA</code> meaning no attribution to any of this factors).</p>
 <pre class="r"><code># this model is 3-dimensional, so it is more demanding computationally
 # we will decrease default convergence threshold to speed up computations
 mmBfTeachers = bfactor(teachersNumeric, c(NA, NA, 1, 2, 1, 2, NA, NA), TOL = 0.001)</code></pre>
@@ -1848,8 +1848,8 @@ mfBfTeachers = cfa(modelBf, teachersOrdered)</code></pre>
 ##     TC026Q07NA        1.000                               1.000    1.000
 ##     TC026Q09NA        1.000                               1.000    1.000
 ##     TC026Q10NA        1.000                               1.000    1.000</code></pre>
-<p>We can see that such a model fits data much better than our base unidimensional model (however we can notice, that Q10 appears not to be conected with a second specific factor). It also fits data better than a model with two residual correlations added. However we can’t directly test fit of this bi-factor model and a model with residual correlations (for example with <code>anova()</code> function), because they aren’t nested.</p>
-<p>However we should note that we encountered some <strong>problems with estimation</strong>. Because of that this results can’t be fully trusted. Generaly we have to few observed variables to assure stable estimation of a model with 3 latent factors within CCFA approach. This won’t be so serious problem within IRT approach:</p>
+<p>We can see that such a model fits data much better than our base unidimensional model (however we can notice, that Q10 appears not to be related to the second specific factor). It also fits data better than a model with two residual correlations added. However we can’t directly test fit of this bi-factor model and a model with residual correlations (for example with <code>nova()</code> function), because the models are not nested.</p>
+<p>However we should note that we encountered some <strong>problems with estimation</strong>. Because of that, results can’t be fully trusted. Generaly we have too few observed variables to assure stable estimation of a model with 3 latent factors within CCFA approach. This won’t be so serious problem within IRT approach:</p>
 <pre class="r"><code># this model is 3-dimensional, so it is more demanding computationally
 # we will decrease default convergence threshold to speed up computations
 mmBf2Teachers = bfactor(teachersNumeric, c(1, 1, 1, 2, 1, 2, 2, 2), TOL = 0.001)</code></pre>

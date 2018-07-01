@@ -66,7 +66,7 @@ TC026 We would like to know how you generally feel about your job. How strongly 
 library(diagram)
 par(mar = c(0, 2, 1, 2))
 layout(matrix(1:2, nrow = 1))
-openplotmat(main = "Reflective model")
+openplotmat(main = "Reflective model (CFA/IRT/SEM)")
 elpos = matrix(c(0.80, 0.80, 0.80, 0.20,
                  0.15, 0.50, 0.85, 0.50), ncol = 2)
 straightarrow(elpos[4,] + c(0.2, 0), elpos[1,] - c(0.2, 0), lwd = 3)
@@ -76,7 +76,7 @@ textrect(elpos[1,], 0.2, 0.1, lab = "Question 3", box.col = "white", cex = 1.5)
 textrect(elpos[2,], 0.2, 0.1, lab = "Question 2", box.col = "white", cex = 1.5)
 textrect(elpos[3,], 0.2, 0.1, lab = "Question 1", box.col = "white", cex = 1.5)
 textellipse(elpos[4,], 0.2, lab = "Common\nfactor", box.col = "white", cex = 1.5)
-openplotmat(main = "Formative model")
+openplotmat(main = "Formative model (ex. PCA)")
 elpos = matrix(c(0.20, 0.20, 0.20, 0.80,
                  0.15, 0.50, 0.85, 0.50), ncol = 2)
 straightarrow(elpos[1,] + c(0.2, 0), elpos[4,] - c(0.2, 0), lwd = 3)
@@ -269,6 +269,10 @@ textrect(elpos[3,], 0.1, 0.1, lab = "Question 1\n(ordered cat.)",
 ## Lavaan
 
   - *The lavaan package is developed to provide useRs, researchers and teachers a free open-source, but commercial-quality package for latent variable modeling. You can use lavaan to estimate a large variety of multivariate statistical models, including path analysis, confirmatory factor analysis, structural equation modeling and growth curve models.* [(official package page)](http://lavaan.ugent.be/)
+  - Good user support:
+    - [Tutorial](http://lavaan.ugent.be/tutorial/index.html) and [other teaching materials](http://lavaan.ugent.be/resources/teaching.html).
+    - Active [discussion group](https://groups.google.com/forum/#!forum/lavaan).
+    - Related packages: lavaan.survey, semTools, semPlot.
   - User experience regarding model specification and printed output very similar to *Mplus*.
   - We will use *lavaan* to perform CCFA but it can be easily used to estimate wide variety of SEM models (estimated on the basis of covariance/correlation matrix).
   - *laavan* itself do not enable user to perform typical EFA/CEFA. It can be done with use of functions from the [*semTools*](https://github.com/simsem/semTools/wiki) package.
@@ -277,6 +281,8 @@ textrect(elpos[3,], 0.1, 0.1, lab = "Question 1\n(ordered cat.)",
 
   - In my opinion first-choice IRT package for R.
   - Flexible but can be easy used with default settings.
+  - Actively developed and [supported](https://groups.google.com/forum/#!forum/mirt-package).
   - Providing summaries calculated in an EFA/CFA manner (factor loadings, rotations).
   - Allowing for multiple group analysis.
   - Allowing for latent regression (some kind of simply SEM model).
+  - Many advanced features and configuration options.
