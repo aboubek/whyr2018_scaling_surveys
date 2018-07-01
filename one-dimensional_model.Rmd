@@ -7,7 +7,7 @@ output: html_document
 
 # Teachers data
 
-First we will work with set of questions used in PISA 2015 Teacher Questionary. Questions regards attitudes toward working as a teacher. For simplicity we will use data from only 3 countries: Germany, Brazil and United Arab Emirates.
+First we will work with set of questions used in PISA 2015 Teacher Questionare. Questions regard teacher satisfaction with their occupation. For simplicity we will use data from 3 countries: Germany, Brazil and United Arab Emirates.
 
 ```{r}
 (load("teachers.RData"))
@@ -28,9 +28,11 @@ teachersVarLabels[4:11,]
 Let's note, that:
 
   - There are both quesions with *positive wording* (Q01, Q02, Q05, Q07, Q09, Q10) and with *negative wording* (Q04, Q06).
-  - The numbering of questions is not continuous - there lacks Q03 and Q07. It is probable that these questions proved not to work correctly in a pilot study and have been deleted from a final questionnaire.
+  - There are questions regarding situation in a school somebody is working (Q05, Q07, Q09, Q10) and questions regarding more general attitudes (Q01, Q02, Q04, Q06).
+    - In PISA study these were used to form two separate scales.
+  - The numbering of questions is not continuous - items Q03 and Q07 are missing. These questions didn't work correctly in a pilot study and were dropped in the final questionnaire.
 
-How teachers responded to this questions?
+All the question were asked using a 4-point Likert scale. How teachers responded to this questions?
 
 ```{r}
 summary(teachers[,4:11])
@@ -42,7 +44,7 @@ summary(teachers[,4:11])
 
 ### One-dimensional SGR IRT model
 
-Let's use *mirt* at first.
+Let's use *mirt* first.
 
 Function `mirt()` takes data (as a data frame or matrix) as a first argument and number of factors as a second argument. However we must convert our variables from factor to numeric format.
 
@@ -61,8 +63,21 @@ summary(mm1Teachers)
 
 We can see that:
 
-  - As expected all variables except Q04 and Q06 are positively related to a common factor.
+  - As expected, all variables except Q04 and Q06 are positively related to a common factor.
   - All relationships are rather strong - with a little exception of Q09 - and quite similar in strength.
+
+We can also inspect questions' *chararcteristic curves*, ie. plots describing relationship between value of a latent factor and probability of giving each answer.
+
+```{r}
+itemplot(mm1Teachers, 1, main = teachersVarLabels$label[4])
+itemplot(mm1Teachers, 2, main = teachersVarLabels$label[5])
+itemplot(mm1Teachers, 3, main = teachersVarLabels$label[6])
+itemplot(mm1Teachers, 4, main = teachersVarLabels$label[7])
+itemplot(mm1Teachers, 5, main = teachersVarLabels$label[8])
+itemplot(mm1Teachers, 6, main = teachersVarLabels$label[9])
+itemplot(mm1Teachers, 7, main = teachersVarLabels$label[10])
+itemplot(mm1Teachers, 8, main = teachersVarLabels$label[11])
+```
 
 ### How to tell if model is good?
 
@@ -72,7 +87,7 @@ For now let's assume, that it is good:
   - not to have factor loadings below .5;
   - not to have to much variation in (absolute) values of factor loadings.
 
-We can see values of some fit indexes calling `anova()` function, but it won't be useful without having some other model for a comparison.
+We can see values of some fit indexes calling `anova()` function, but they won't be useful without having some other model for a comparison.
 
 ```{r}
 anova(mm1Teachers)
@@ -88,14 +103,14 @@ teachersNumericRev = teachersNumeric
 teachersNumericRev$TC026Q04NA = 5 - teachersNumericRev$TC026Q04NA
 teachersNumericRev$TC026Q06NA = 5 - teachersNumericRev$TC026Q06NA
 # estimate one-dimension Rasch Partial Credit IRT model
-mm2Teachers = mirt(teachersNumericRev, 1, "Rasch")
-summary(mm2Teachers)
+mm1rTeachers = mirt(teachersNumericRev, 1, "Rasch")
+summary(mm1rTeachers)
 ```
 
-Now we can test whether the previous, more complicated model fits data significantly better than the simplier Rasch model (using LR test and some information criteria).
+Now we can test whether the previous, more complex model fits data better than the simplier Rasch model (using LR test and some information criteria).
 
 ```{r}
-anova(mm1Teachers, mm2Teachers)
+anova(mm1Teachers, mm1rTeachers)
 ```
 
 It looks that Rasch model assumption doesn't hold.
@@ -106,7 +121,7 @@ It looks that Rasch model assumption doesn't hold.
 # estimate SGR model with `teachersNumericRev` data
 mm1rTeachers = mirt(# write your code here)
 anova(mm1rTeachers, mm1Teachers) # don't look at p-value, therea are no df!
-anova(mm1rTeachers, mm2Teachers)
+anova(mm1rTeachers, mm1rTeachers)
 ```)
 ```
 
@@ -114,7 +129,7 @@ anova(mm1rTeachers, mm2Teachers)
 
 ### Estimation of CCFA with lavaan
 
-We must describe model to laavan using specific forumla-kind syntax, provided as a string. Also we must make sure that our variables are **ordered** factors (very rarely used R feature). CCFA can be estimated with `cfa()` function.
+We must describe model to *laavan* using specific formula-kind syntax, provided as a string. Also we must make sure that our variables are **ordered** factors (very rarely used R feature). CCFA can be estimated with `cfa()` function.
 
 ```{r}
 library(lavaan)
@@ -138,17 +153,17 @@ data.frame(fact.loadings.lavaan =
            fact.loadings.mirt = round(summary(mm1Teachers)$rotF[, 1], 3))
 ```
 
-Clearly they're not the same (estimated models weren't formally equivalent, because `mirt` used logistic link function; moreover `cfa()` excluded observations with missings) but qualitatively similar.
+Clearly they're not the same (estimated models are not formally equivalent, because `mirt()` used logistic link function; moreover `cfa()` excluded observations with missings) but qualitatively similar.
 
 ### Assesing model fit
 
-Using CCFA we have ability to easily assess overall model fit. As can be seen in `mf1Teachers` model summary above, our model is far from being perfect. Chi-square test shows that so-called *saturated model* fits the data signifficantly better than our model (however with 16 thousands of respondent it's not very surprising). While values of CFI and TLI measures are not so bad, RMSEA and SRMR are poor.
+With CCFA we have additional measures to assess overall model fit. As can be seen in `mf1Teachers` model summary above, our model is far from being perfect. Chi-square test shows that so-called *saturated model* fits the data better than our model (however with 16 thousands of respondent it's not very surprising). While values of CFI and TLI measures are not so bad, RMSEA and SRMR are poor.
 
-**Note:** rules of interpreting values of fit indices are a little different between domains and are considerably changing over time (getting more and more strict each decade, especially in psychology). For purpose of this workshop let's assume that *good* is: having CFI and TLI over .9, having RMSEA below .5, and having RMSR below .08.
+**Note:** rules of interpreting values of fit indices are a little different between domains and are considerably changing over time (getting more and more strict each decade, especially in psychology). For purpose of this workshop let's assume that *good* is: having CFI and TLI over .9, having RMSEA below .5, and having SRMR below .08.
 
 ### Rasch (probit) model with lavaan
 
-If you like, you can estimate Rasch model also within CCFA approach (except that this will be a probit, not a logistic model). To do this with *lavaan* we must fix values of model parameters (remembering about negative wording of two questions):
+You can estimate Rasch model also within CCFA approach (except that this will be a probit, not a logistic model). To do this with *lavaan* we must fix values of model parameters (remembering about negative wording of two questions):
 
 ```{r}
 # estimate one-dimension CCFA Rasch-like model
@@ -157,19 +172,19 @@ modelR = 'F1 =~ 1*TC026Q01NA + 1*TC026Q02NA + -1*TC026Q04NA + 1*TC026Q05NA +
 # or:
 # modelR = paste0('F1 =~ ', paste0(c(1, 1, -1, 1, -1, 1, 1, 1), "*",
 #                                 names(teachersOrdered), collapse = " + "))
-mf2Teachers = cfa(modelR, teachersOrdered)
-summary(mf2Teachers, fit.measures = TRUE, standardized = TRUE)
+mf1rTeachers = cfa(modelR, teachersOrdered)
+summary(mf1rTeachers, fit.measures = TRUE, standardized = TRUE)
 ```
 
-We can compare two models with `anova()` function (however result is easy to gues):
+We can compare two models with `anova()` function (however result is easy to guess):
 
 ```{r}
-anova(mf2Teachers, mf1Teachers)
+anova(mf1rTeachers, mf1Teachers)
 ```
 
 ## Estimating factor scores
 
-Now We know something about our scale, but still don't have estimates of a latent common factor that we could use in a further analysis. Let's get them!
+We know something about our scale, but still don't have estimates of a latent common factor that we could use in a further analyses. Let's get them!
 
 ### With mirt
 
@@ -188,7 +203,7 @@ teachers$scoresCCFA[-attributes(na.omit(teachersOrdered))$na.action] =
   lavPredict(mf1Teachers)
 ```
 
-**Note:** `fscores()` and `lavPredict()` by default uses different methods of estimating factor scores: Empirical Bayes Modal (EBM) and Expected A'Posteriori (EAP). We can estimate EBMs with `fscores()` (using `method` argument), but we can't estimate EAPs with `lavPredict()`. Nevertheless, as long as posterior distributions (of latent trait conditionally on combination of values of observed variables) are quite similar to gaussian (what is often a case), differences between this two methods are very small.
+**Note:** `fscores()` and `lavPredict()` by default uses different methods of estimating factor scores: Empirical Bayes Modal (EBM) and Expected A'Posteriori (EAP). We can estimate EBMs with `fscores()` (using `method` argument), but we can't estimate EAPs with `lavPredict()`. Nevertheless, as long as posterior distributions (of latent trait conditionally on combination of values of observed variables) are quite similar to gaussian (which is often a case), differences between these two methods are very small.
 
 ### Simple index
 
@@ -247,17 +262,17 @@ names(countrySDs)[-1] = paste0(names(countrySDs)[-1], ".sd")
 
 We may conclude that:
 
-  - The most positive attitude towards being a teacher have German teachers, and the least positive (among these three countries) have Brazil teachers.
+  - German teachers have the most positive attitude towards being a teacher, and the Brazil teachers are the least positive of the three countries.
   - Size of a difference between Brasil and Germany depends on estimator of latent scores - it is visibly larger if SGRM estimates are used.
   - Variation in attitudes are similar in Germany and United Arab Emirates and a liitle smaller in Peru.
 
 ## Multiple groups models with a measurement invariance
 
-However we may estimate more complicated models, in which we will take into account that respondents comes from three potentially different populations. In this models means and standard deviations of a latent trait within each group (except one, that will be a point of reference to the others) will be a model parameters. On the other hand, we will assume, that measurement properties of questions do not vary between countries - this assumption is called measurement invariance (to be precise: *scalar invariance* or *strong factorial invariance*). If we don't introduce such a assumption, comparing means and variances between groups will make little (or even no) sense.
+However we may estimate more complex models, in which we will take into account that respondents comes from three potentially different populations. In this models means and standard deviations of a latent trait within each group (except one, that will be a point of reference to the others) will be free estimated model parameters. On the other hand, we will assume, that measurement properties of questions do not vary between countries - this assumption is called measurement invariance (to be precise: *scalar invariance* or *strong factorial invariance*). If we don't introduce such an assumption, comparing means and variances between groups will make little (or even no) sense.
 
 ### Multiple groups model with measurement invariance in mirt
 
-To estimate such a model with *mirt* package we must use `multipleGroup()` function. Comparing to `mirt()` it needs two additional arguments: vector describing grouping and specyfication of what parameters should be fixed and what parameters should be freely estimated across groups. Function `multipleGroup()` by default assumes that distribution of latent trait is the same across groups, but questions (items) parameters may vary - just the opposite to what we want to do now. In a code below `invariance = c("free_means", "free_var", "slopes", "intercepts")` tells function to freely estimate means and variances of a latent traits, but to keep fixed parameters describing relationship between latent factor and observed variables (ie. *slopes* and *intercepts*).
+To estimate such a model with *mirt* package we must use `multipleGroup()` function. Compared to `mirt()` function it needs two additional arguments: vector describing grouping and specification of parameters that are to be fixed and parameters that should be freely estimated across groups. Function `multipleGroup()` by default assumes that distribution of latent trait is the same across groups, but questions (items) parameters may vary - just the opposite to what we want to do now. In a code below `invariance = c("free_means", "free_var", "slopes", "intercepts")` tells function to freely estimate means and variances of a latent traits, but to keep parameters describing relationship between latent factor and observed variables fixed (ie. *slopes* and *intercepts*).
 
 ```{r}
 mm3Teachers = multipleGroup(teachersNumeric, 1, teachers$CNTRYID,
@@ -347,3 +362,127 @@ Factor scores from *mirt* shows even greater differences than model parameters.
     - Scores from one-group model will underestimate differences between groups.
     - Scores from multiple group model will overestimate differences between groups.
       - At least for now, you should not use factor scores from multigroup model extracted with *lavaan*.
+
+# Distractions of unidimensionality
+
+As we have seen, unidimensional model applied to this set of 8 questions doesn't fit data very well. We can look for some more complicated model specifications that will allow better fit.
+
+Within CCFA approach we have two solutions that can be used to improve model fit:
+
+  - Assuming that there are **correlated errors**, ie. that some observed variables (answers to some questions) are pairwise correlated independently of a relationship with a factor being a common cause to all the analized questions.
+   - Assuming that there is additional latent factor related to some of observed variables independently of a relationship with a factor being a common cause to all the analized questions.
+   - Assuming that there are several subscales within our set of questions.
+
+But how to determine, which (pairs/subsets of) questions are causing problems?
+
+## Using modification indices to detect problems
+
+```{r}
+modind = modificationIndices(mf1Teachers)
+modind[order(-modind$mi), ]
+```
+
+We can see, that the most important problem is relationship of Q05 with Q07.
+
+```{r}
+teachersVarLabels[grep("Q0[57]", teachersVarLabels$variable), ]
+```
+
+These are two questions with the strongest reference to a climate in the specific place where respondent works.
+
+Because problem involves only two questions within CCFA approach it will be better to solve it adding to a model correlation between observed variables' errors.
+
+```{r}
+modelCe1 = '
+F1 =~ TC026Q01NA + TC026Q02NA + TC026Q04NA + TC026Q05NA + TC026Q06NA +
+  TC026Q07NA + TC026Q09NA + TC026Q10NA
+TC026Q05NA ~~ TC026Q07NA'
+mfCe1Teachers = cfa(modelCe1, teachersOrdered)
+summary(mfCe1Teachers, fit.measures = TRUE, standardized = TRUE)
+```
+
+We can see that it considerably improved fit of a model. What can we improve further?
+
+```{r}
+modind = modificationIndices(mfCe1Teachers)
+modind[order(-modind$mi), ]
+teachersVarLabels[grep("Q0[46]", teachersVarLabels$variable), ]
+```
+
+```{r}
+modelCe2 = '
+F1 =~ TC026Q01NA + TC026Q02NA + TC026Q04NA + TC026Q05NA + TC026Q06NA +
+  TC026Q07NA + TC026Q09NA + TC026Q10NA
+TC026Q05NA ~~ TC026Q07NA
+TC026Q04NA ~~ TC026Q06NA'
+mfCe2Teachers = cfa(modelCe2, teachersOrdered)
+summary(mfCe2Teachers, fit.measures = TRUE, standardized = TRUE)
+```
+
+## Dealing with correlated errors in mirt
+
+In *mirt* we don't have convient tools to detect what pairs of questions are correlated independently of relationship with a common factor. However if we detected this otherwise, we can use bifactor rotation to estimate model that describes such correlations. It is done in a different way than we have done above, by introducing additional, so-called specific factors (independent of each other and of a general factor) to a model. To do it with *mirt* we should use `bfactor()` function, in a second argument describing attribution of questions (items) to specific factors (with `NA` meaning no attribution to any of this factors).
+
+```{r}
+# this model is 3-dimensional, so it is more demanding computationally
+# we will decrease default convergence threshold to speed up computations
+mmBfTeachers = bfactor(teachersNumeric, c(NA, NA, 1, 2, 1, 2, NA, NA), TOL = 0.001)
+summary(mmBfTeachers)
+```
+
+## Bi-factor model in lavaan
+
+We can't estimate a bi-factor model like this above within CCFA approach due to noidentification problem. Generally there should be at least three observed variables connected with each latent factor to enable model identification.
+
+A bi-factor model in which we assume that specific factors desribes question's reference to a more general sattisfaction or to a sattisfaction with a particular school where teacher works, can be estimated with CCFA. Writing model specification we must add lines describing indpendence of the latent factors.
+
+```{r}
+modelBf = '
+F1 =~ TC026Q01NA + TC026Q02NA + TC026Q04NA + TC026Q05NA + TC026Q06NA +
+  TC026Q07NA + TC026Q09NA + TC026Q10NA
+F2 =~ TC026Q01NA + TC026Q02NA + TC026Q04NA + TC026Q06NA
+F3 =~ TC026Q05NA + TC026Q07NA + TC026Q09NA + TC026Q10NA
+F1 ~~ 0*F2
+F1 ~~ 0*F3
+F2 ~~ 0*F3'
+mfBfTeachers = cfa(modelBf, teachersOrdered)
+summary(mfBfTeachers, fit.measures = TRUE, standardized = TRUE)
+```
+
+We can see that such a model fits data much better than our base unidimensional model (however we can notice, that Q10 appears not to be conected with a second specific factor). It also fits data better than a model with two residual correlations added. However we can't directly test fit of this bi-factor model and a model with residual correlations (for example with `anova()` function), because they aren't nested.
+
+However we should note that we encountered some **problems with estimation**. Because of that this results can't be fully trusted. Generaly we have to few observed variables to assure stable estimation of a model with 3 latent factors within CCFA approach. This won't be so serious problem within IRT approach:
+
+```{r}
+# this model is 3-dimensional, so it is more demanding computationally
+# we will decrease default convergence threshold to speed up computations
+mmBf2Teachers = bfactor(teachersNumeric, c(1, 1, 1, 2, 1, 2, 2, 2), TOL = 0.001)
+summary(mmBf2Teachers)
+```
+
+## Do this affect factor scores?
+
+Due to estimation problems in `mfBfTeachers` factor scores can't be computed for this model.
+
+```{r}
+# this will take a while!
+teachers$scoresCCFAce = NA
+teachers$scoresCCFAce[-attributes(na.omit(teachersOrdered))$na.action] =
+  lavPredict(mfCe2Teachers)
+teachers$scoresSGRMbf = fscores(mmBfTeachers)[, 1]
+teachers$scoresSGRMbf2 = fscores(mmBf2Teachers)[, 1]
+
+summary(teachers[, c("scoresSGRM", "scoresSGRMbf", "scoresSGRMbf2",
+                     "scoresCCFA", "scoresCCFAce")])
+round(cor(teachers[, c("scoresSGRM", "scoresSGRMbf", "scoresSGRMbf2",
+                       "scoresCCFA", "scoresCCFAce")],
+          use = "pairwise.complete.obs"), 3)
+pairs(teachers[, c("scoresSGRM", "scoresSGRMbf", "scoresSGRMbf2",
+                   "scoresCCFA", "scoresCCFAce")],
+      lower.panel = function(x, y) {
+        points(x, y)
+        grid()},
+      upper.panel = function(x, y) {
+        smoothScatter(x, y, add = TRUE)
+        grid()})
+```
