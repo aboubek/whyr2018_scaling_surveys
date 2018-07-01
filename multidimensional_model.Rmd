@@ -1,0 +1,226 @@
+---
+title: "Multidimensional Models"
+author: "Tomasz Żółtak"
+date: "2.07.2018"
+output: html_document
+---
+
+# Teachers data
+
+Now we will use set of questions used in ESS 8 study. 21 questions regard values and lifestyle. For simplicity we will analyze only data from Poland.
+
+```{r}
+(load("important.RData"))
+summary(droplevels(important$cntry))
+```
+
+  - Data frame `importnat` contains answers (variables with names starting from "im" or "ip") and 2 id variables.
+    - This survey data has been cleaned. All irrelevant answers to the questions has been replaced with NAs and respondents that didn't answer to any question have been removed from the dataset.
+  - Data frame `essMoreInfo` contains some additional charactersitics of the respondents.
+  - Data frame `essVarLabels` contains labels of variables in two data frames described above.
+
+```{r}
+essVarLabels[3:23,]
+levels(important[[3]])
+```
+
+Variable labels show generally what was question about, but don't describe a way it was asked. These were a kind of *projection* questions: description of some person was read to a respondent and then he/she had to answer how much this person is (or is not) like himself/herself. For example, a description in the first question was: *Thinking up new ideas and being creative is important to him. He likes to do things in his own original way.* Respondent asked using 6-point Likert scale: Very much like me --- Like me --- Some-what like me --- A little like me --- Not like me --- Not like me at all.
+
+Below there is a graph that is far from being perfect, but provides some insight into respondents' answers. Bars comes from left to right (and from darker to lighter) from these describing the most similarity to a provided description to these describing the most dissimilarity.
+
+```{r}
+temp = lapply(important[,3:23], table, useNA = "always")
+temp = as.matrix(as.data.frame(lapply(temp, as.numeric)))
+temp = apply(temp, 2, function(x) {return(100 * x / sum(x))})
+temp = temp[, order(apply(temp, 2, function(x) {return(sum(x[1:2]))}))]
+rownames(temp) = c(levels(important[[3]]), "<NA>")
+par(mar = c(4, 4, 0, 1))
+barplot(temp, horiz = TRUE, las = 1, xlab = "% respondents")
+grid(ny = 0)
+```
+
+# How many latent factors?
+
+It's unlikely, that these questions constitute a single unidimensional scale. Rather there exist few latent factors, each connected with some subset of these questions. But how to determine, how many latent factors there could be, and to what question they are connected? We must employ so-called exploratory factor analysis to solve this problem.
+
+We have to:
+
+  - Estimate models with different number of latent factors.
+    - At this moment we will assume, that all the factors are connected with all the observed variables (even if some of this relationships will be very weak).
+  - Decide which one of the is *the best* (for us).
+  - Decide how to *rotate* factor loadings matrix.
+
+## Estimation of multidimensional models
+
+### With polycor package and factanal() function
+
+*lavaan* itself isn't very supportive in performing CEFA (and EFA). There are packages that help to overcome this problem with *lavaan* ([semTools](https://github.com/simsem/semTools/wiki)), but we will turn to a more classical solution: estimating a matrix of polychoric correlations with package *polycor* and using base R `factanal()` function. 
+
+```{r}
+library(polycor)
+# computing ML estimates is very time consuming!
+# change ML argument to FALSE or read a pre-computed matrix with load() (below)
+# corImportant = hetcor(important[, 3:23], use = "pairwise.complete.obs",
+#                       ML = TRUE, std.err = FALSE)
+load("corImportant.RData")
+corImportant
+# estimating models
+mf = lapply(1:7,
+            function(x, cm, n) {
+              return(factanal(factors = x, covmat = cm, n.obs = n))},
+            cm = corImportant$correlations, n = nrow(important))
+# argument cutoff of the print() function allows not to show
+# factor loadings that are to small to be of our interest
+lapply(mf, print, cutoff = 0.3)
+```
+
+Let's note that:
+
+  - Once we compute a matrix of polychoric correlations (what can take a long time), estimating CEFA models with `factanal()` is done very quickly, irrespective of number of factors (however it wasn't so easy in `70s or `80s of the 20th century).
+  - Information about *cummulative variance* on the last factor can be used to determine, what is a reasonable number of factors.
+    - This is quite-similar to determining a proper number of clusters in a cluster analysis (especially when non-hierarchical method is used, like k-means).
+  - In principle we could also use chi-squared test to compare (stepwise) models with different number of factors. However:
+    - With more than 200-500 cases it often leads to choosing a model with more factors, than we can reasonably interpret.
+      - Test reported at the end of `print()` method's output tests a model against a saturated model and thus typically isn't helpful.
+    - There is no `anova()` method defined for objects of class *factanal*, so there is no convinient way to perform such a test.
+
+Below there is a graph showing mean *uniqueness* as a function of number of factors.
+
+  - In a continous variables factor analysis *uniqueness* is simply a part of variance of an observed variable, that is not shared with latent factors (ie. 1-*communality*). In a CEFA/CCFA case it's quite the same, however it's not about observed (ordered categorical) variable's variance, but about variance of its continous (and unobservable) *latent response* counterpart (see slide 13. of "Intorduction.pdf").
+
+```{r}
+par(mar = c(4, 4, 0, 1))
+meanUniqueness = sapply(mf, function(x) {return(mean(x$uniquenesses))})
+nf = sapply(mf, function(x) {return(x$factors)})
+plot(nf, meanUniqueness, type = "l", lwd = 2, col = 2, ylim = c(0, 1), yaxs = "i",
+     xlim = c(0, max(nf) + 1), xaxp = c(1, max(nf), max(nf) - 1), xaxs = "i",
+     xlab = "number of latent factors", ylab = "mean uniqueness")
+grid(nx = max(nf) + 1, ny = 10)
+```
+
+Using *elbow rule* we may conclude, that we should choose model with only 2 factors.
+
+Let's take a look at this model:
+
+```{r}
+temp = mf[[2]]$loadings
+rownames(temp) = essVarLabels$label[3:23]
+print(temp, cutoff = 0.3)
+```
+
+By default `factanal()` assumes that latent factors are orthogonal (ie. independent of each other). We can see, that questions divides very well between two factors - that's very nice. Only `impfree` is *cross-loaded* having considerably big factor lodings with more than one factor.
+
+### With mirt
+
+We can easily estimate exploratory models with *mirt* package. However there will appear some problem when number of latent factors rises, because within IRT approach to estimation computational complexity rises exponentially as a function of number of latent variables.
+
+```{r}
+library(mirt)
+importantNumeric = as.data.frame(lapply(important[, 3:23], as.numeric))
+mm1 = mirt(importantNumeric, 1)
+# decreasing default convergence threshold to speed up computations
+mm2 = mirt(importantNumeric, 2, TOL = 0.001)
+# this would take a long time, so better give it up
+# mm3 = mirt(importantNumeric, 3, TOL = 0.001)
+
+# in summary() method for mirt objects argument 'suppress' has a similar role to
+# 'cutoff' argument in print() method for factanal objects
+summary(mm2, suppress = 0.3, rotate = "none")
+```
+
+## Factor rotations
+
+It may be unintuitive, but for a given multidimensional factor model there is infinite number of (combinations of values in) factor loadings matrices that provides equally good model fit (this is connected with choosing a basis of a vector space). Statistical methods that enables to obtain such matrices that have some desirable properties are called rotations. Typically it is expected to obtain factor loadings matrix providing good *separation* of factors, ie. that for each factor there are either strong loadings or loadings with values close to 0 and there are no cross-loaded items. Two perhaps most videly used rotations of this type are *varimax* and *oblimin*.
+
+  - *Varimax* provides a solution in which latent factor orthogonality is assumed.
+  - *Oblimin* allows latnt factors to be correlated (if this can help to obtain better *separtion* of factor loadings).
+    - `summary()` method for *mirt* models uses *oblimin* rotation by default to compute presented factor loadings matrix.
+
+There are many different rotations (see `?GPArotation::rotations`), for example bi-factor roatations, trying to provide solutions with one *common* factor and additional separated from each other *specific* factors.
+
+Let's look on rotated solutions of our 2-dimensional model:
+
+```{r}
+library(GPArotation)
+mf2dNone = mf[[2]]$loadings
+(mf2dVarimax = Varimax(mf2dNone, normalize = TRUE))
+(mf2dOblimin = oblimin(mf2dNone))
+# let's put it all together
+solutions = data.frame(variable = essVarLabels$label[3:23],
+                       cbind(mf2dNone, mf2dVarimax$loadings, mf2dOblimin$loadings))
+names(solutions)[-1] = c("unrot. F1", "unrot. F2", "varimax F1", "varimax F2",
+                         "oblimin F1", "oblimin F2")
+solutions[-1] = lapply(solutions[-1],
+                       function(x, cutoff) {
+                         return(ifelse(abs(x) < cutoff,
+                                       "",
+                                       format(round(x, 2), nsmall = 2)))},
+                       cutoff = 0.3)
+solutions
+```
+
+In our case rotations hardly changes a solution (but it is not always the case).
+
+With *mirt* objects we can see rotated factor scores matrix using `summary()` method. We can also extract unrotated solution with `extract.mirt()` function and rotate it ourself.
+
+```{r}
+summary(mm2, rotate = "varimax", normalize = TRUE)
+Varimax(extract.mirt(mm2, "F"), normalize = TRUE)
+```
+
+# Confirmatory multidimensional models
+
+Having determined the structure of our set of questions with exploratory analysis we can construct confirmatory models. Because each of the questions except *impfree* may be assigned to only one of the two latent factors, and factor loadings of *impfree* are similar on both factors, it seems that the best solution will be to exclude *impfree* from analysis.
+
+Multidimensional confirmative models can be described to `mirt()` with pseudo-formula notation. Code below assigns questions to factors (excluding *impfree*) and allows nonorthogonality of latent factors. Questions are identified not by its names, but as a position in a dataframe provided by the `data` argument.
+
+```{r}
+modelMirt = '
+F1 = 3, 5, 7-9, 12, 14, 16-20
+F2 = 1-2, 4, 6, 10, 13, 15, 21
+COV = F1*F2'
+mm2c = mirt(importantNumeric, modelMirt)
+summary(mm2c)
+```
+
+In *lavaan* we can do the same with:
+
+```{r}
+library(lavaan)
+important[3:23] = lapply(important[3:23], ordered)
+modelLavaan = '
+F1 =~ ipeqopt + impsafe + ipfrule + ipudrst + ipmodst + iphlppl + ipstrgv +
+      ipbhprp + iprspot + iplylfr + impenv + imptrad
+F2 =~ ipcrtiv + imprich + ipshabt + impdiff + ipgdtim + ipsuces + ipadvnt + impfun
+F1 ~~ F2'
+mf2c = cfa(modelLavaan, important)
+summary(mf2c, fit.measures = TRUE, standardized = TRUE)
+```
+
+We can see that this model doesn't fit data very well. Probably adding some cross loadings could help.
+
+# Factor scores from multidimensional models
+
+If we estimate a multidimensional model corelations between latent factors are this model's parameters (even if they're sometimes fixed to be 0 - if we assume orthogonality). Do this correlations hold between factor scores extracted from a model?
+
+```{r}
+modelMirtOrtho = '
+F1 = 3, 5, 7-9, 12, 14, 16-20
+F2 = 1-2, 4, 6, 10, 13, 15, 21'
+mm2co = mirt(importantNumeric, modelMirtOrtho)
+
+rF1F2 = round(coef(mm2c)$GroupPars[4], 2)
+
+fs = data.frame(fscores(mm2c),
+                fscores(mm2co))
+names(fs) = c("F1", "F2", "F1 ortho.", "F2 ortho.")
+round(cor(fs), 2)
+# here we can find value of a parameter of the mm2c model describing latent correlation
+round(coef(mm2c)$GroupPars, 2)
+# what happens if we make a test?
+cor.test(fs$`F1 ortho.`, fs$`F2 ortho.`)
+```
+
+We can see, that **factor scores estimated on the basis of an orthogonal model aren't orthogonal**. Correlation between them is rather weak, but if we perform hypothesis testing and have quite large dataset, it will often turn out to be significantly different from 0.
+
+Although in our case correlation between factor scores estimated on the basis of non orthogonal model appeared to be very close to a latent correlation, typically this can't be taken for granted. **Especially with models with strong latent correlation (not our case), there will be clear tendency that a correlation between factor scores be much stronger, than a latent correlation.** Because of that with regards to multidimensional models it should be always well thought, whether it is better to provide factor scores estimated on the basis of such a model, or rather on the basis of few separate one-dimesional models.
