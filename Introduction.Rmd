@@ -124,14 +124,13 @@ Now I will briefly describe some people. Please listen to each description and t
      1. Simple model
      2. Assesing model fit
      3. Extracting factor scores
-     4. Distracting factors - subscales and question formats
-     5. Multiple groups - freeing distributions
-     6. Multiple groups - DIFs/invariance
+     4. Multiple groups - freeing distributions
+     5. Distracting factors - subscales and question formats
   3. Multidimensional models
      1. Estimating Exploratory Factor (and IRT) Analysis model
      2. Choosing the number of dimensions
      3. Rotations
-     4. Extracting factor scores in multidmensional models
+     4. Factor scores in multidmensional models
 
 # A little of statistical theory
 

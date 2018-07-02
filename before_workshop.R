@@ -3,8 +3,7 @@ packages = matrix(c(
   "lavaan",  "0.6-1",
   "mirt",    "1.28",
   "GPArotation", "2014.11-1",
-  "polycor", "0.7-9",
-  "ggplot2", "2.2.1"),
+  "polycor", "0.7-9"),
   nrow = 2)
 for (i in 1:ncol(packages)) {
   version = tryCatch(packageVersion(packages[1, i]),
